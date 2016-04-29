@@ -1,5 +1,6 @@
 """Main entry file, definition of ColumnDT and DataTables."""
 import sys
+from datetime import datetime, timedelta
 
 from sqlalchemy.sql.expression import asc, desc, nullsfirst, nullslast
 from sqlalchemy.sql import or_, and_, text
@@ -23,7 +24,7 @@ nullsMethods = {
 
 ColumnTuple = namedtuple(
     'ColumnDT',
-    ['column_name', 'mData', 'search_like', 'filter', 'searchable',
+    ['column_name', 'mData', 'search_like', 'search_datetime_range', 'filter', 'searchable',
         'filterarg', 'nulls_order'])
 
 
@@ -73,7 +74,7 @@ class ColumnDT(ColumnTuple):
     :returns: a ColumnDT object
     """
 
-    def __new__(cls, column_name, mData=None, search_like=True,
+    def __new__(cls, column_name, mData=None, search_like=True, search_datetime_range = False,
                 filter=str, searchable=True, filterarg='cell',
                 nulls_order=None):
         """Set default values for mData and filter.
@@ -87,7 +88,7 @@ class ColumnDT(ColumnTuple):
                              % nulls_order)
 
         return super(ColumnDT, cls).__new__(
-            cls, column_name, mData, search_like, filter, searchable,
+            cls, column_name, mData, search_like, search_datetime_range, filter, searchable,
             filterarg, nulls_order)
 
 
@@ -107,6 +108,8 @@ class DataTables:
 
     :returns: a DataTables object
     """
+
+    H24 = timedelta(days=1)
 
     def __init__(self, request, sqla_object, query, columns):
         """Initialize object and run the query."""
@@ -284,6 +287,13 @@ class DataTables:
                     conditions.append(cast(
                         get_attr(sqla_obj, column_name), String)
                         .ilike('%%%s%%' % search_value2))
+                elif col.search_datetime_range:
+                    start, end = search_value2.split(',')
+                    start, end = datetime.fromtimestamp(int(start)), datetime.fromtimestamp(int(end))
+                    end = end + self.H24
+                    conditions.append(cast(
+                        get_attr(sqla_obj, column_name), String)
+                        .between(start,end))
                 else:
                     conditions.append(cast(
                         get_attr(sqla_obj, column_name), String)
